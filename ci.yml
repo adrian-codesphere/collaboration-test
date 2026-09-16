@@ -1,0 +1,36 @@
+schemaVersion: v0.4
+
+prepare:
+  steps:
+    - name: Install Node.js 22
+      command: nix-env -iA nixpkgs.nodejs_22
+    - name: Install dependencies
+      command: npm ci
+    - name: Build static site
+      command: npm run build
+
+test:
+  steps:
+    - name: Typecheck
+      command: npm run typecheck
+
+run:
+  docs:
+    steps:
+      - name: Serve static site
+        command: npx docusaurus serve --dir build --host 0.0.0.0 --port 3000 --no-open
+    plan: 8
+    replicas: 1
+    network:
+      ports:
+        - port: 3000
+          isPublic: false
+      paths:
+        - port: 3000
+          path: /
+          stripPath: false
+    env: {}
+    volumeMounts:
+      - name: _workspace
+        mountPath: /home/user/app
+        workspacePath: ""
