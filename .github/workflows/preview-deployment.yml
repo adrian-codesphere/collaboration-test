@@ -1,0 +1,50 @@
+name: Codesphere Preview Deployment
+
+# Creates a Codesphere preview workspace for every pull request and tears it
+# down when the PR is closed or merged. The workspace is built from this
+# repository's ci.yml (npm ci -> npm run build -> docusaurus serve on :3000).
+#
+# Required repository configuration:
+#   Secret  CS_TOKEN                 Codesphere API token (Account Settings > API Keys)
+#   Var     CS_TEAM_NAME             Codesphere team name (falls back to 'Simons Team')
+#   Var     CODESPHERE_INSTANCE_URL  Codesphere instance (falls back to cloud.codesphere.com)
+
+on:
+  workflow_dispatch:
+  # opened / reopened / synchronize deploy the current commit; an existing
+  # workspace for the PR is updated rather than duplicated.
+  # closed: the preview workspace is deleted.
+  pull_request:
+    types:
+      - closed
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+jobs:
+  deploy:
+    name: Deploy preview to Codesphere
+    # One workspace per PR: queue overlapping runs for the same PR instead of
+    # racing two deploys/deletes against the same workspace.
+    concurrency: codesphere-preview-${{ github.event.pull_request.number }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Deploy preview workspace
+        uses: codesphere-cloud/gh-action-deploy@8f0ee54c8e34c99639a992cff12429cbbaacc79a # main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          apiToken: ${{ secrets.CS_TOKEN }}
+          team: ${{ vars.CS_TEAM_NAME || 'Simons Team' }}
+          plan: Micro
+          onDemand: 'true'
+          deploymentLinkType: preview
+          apiUrl: ${{ vars.CODESPHERE_INSTANCE_URL || 'https://cloud.codesphere.com' }}
